@@ -20,7 +20,7 @@ def main():
     mapping = []
     for idx, url in enumerate(urls, 1):
         if not url.startswith('https://'):
-            raise ValueError(f'URL must be HTTPS: {url}')/
+            raise ValueError(f'URL must be HTTPS: {url}')
         filename = Path(urlparse(url).path).name
         if not filename or filename in seen:
             raise ValueError(f'Invalid or duplicate filename: {filename!r}')
