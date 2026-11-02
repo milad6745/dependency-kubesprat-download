@@ -1,27 +1,61 @@
-name: Kubespray offline files - single ZIP
+name: Kubespray offline files - individual artifacts
 
 on:
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
-  download-and-package:
+  download:
+    name: Download ${{ matrix.file.id }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        file:
+          - { id: '01-kubelet', url: 'https://dl.k8s.io/release/v1.37.1/bin/linux/amd64/kubelet' }
+          - { id: '02-kubectl', url: 'https://dl.k8s.io/release/v1.37.1/bin/linux/amd64/kubectl' }
+          - { id: '03-kubeadm', url: 'https://dl.k8s.io/release/v1.37.1/bin/linux/amd64/kubeadm' }
+          - { id: '04-etcd', url: 'https://github.com/etcd-io/etcd/releases/download/v3.7.2/etcd-v3.7.2-linux-amd64.tar.gz' }
+          - { id: '05-cni-plugins', url: 'https://github.com/containernetworking/plugins/releases/download/v1.9.1/cni-plugins-linux-amd64-v1.9.1.tgz' }
+          - { id: '06-calicoctl', url: 'https://github.com/projectcalico/calico/releases/download/v3.31.7/calicoctl-linux-amd64' }
+          - { id: '07-calico-crds', url: 'https://github.com/projectcalico/calico/raw/v3.31.7/manifests/crds.yaml' }
+          - { id: '08-cilium-cli', url: 'https://github.com/cilium/cilium-cli/releases/download/v0.20.1/cilium-linux-amd64.tar.gz' }
+          - { id: '09-crictl', url: 'https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.37.0/crictl-v1.37.0-linux-amd64.tar.gz' }
+          - { id: '10-crio', url: 'https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v1.36.7.tar.gz' }
+          - { id: '11-helm', url: 'https://get.helm.sh/helm-v3.22.0-linux-amd64.tar.gz' }
+          - { id: '12-runc', url: 'https://github.com/opencontainers/runc/releases/download/v1.5.2/runc.amd64' }
+          - { id: '13-crun', url: 'https://github.com/containers/crun/releases/download/1.17/crun-1.17-linux-amd64' }
+          - { id: '14-youki', url: 'https://github.com/youki-dev/youki/releases/download/v0.7.0/youki-0.7.0-x86_64-musl.tar.gz' }
+          - { id: '15-kata', url: 'https://github.com/kata-containers/kata-containers/releases/download/3.32.0/kata-static-3.32.0-amd64.tar.zst' }
+          - { id: '16-gvisor-runsc', url: 'https://storage.googleapis.com/gvisor/releases/release/20260817.0/x86_64/runsc' }
+          - { id: '17-gvisor-shim', url: 'https://storage.googleapis.com/gvisor/releases/release/20260817.0/x86_64/containerd-shim-runsc-v1' }
+          - { id: '18-nerdctl', url: 'https://github.com/containerd/nerdctl/releases/download/v2.4.1/nerdctl-2.4.1-linux-amd64.tar.gz' }
+          - { id: '19-containerd', url: 'https://github.com/containerd/containerd/releases/download/v2.3.7/containerd-2.3.7-linux-amd64.tar.gz' }
+          - { id: '20-cri-dockerd', url: 'https://github.com/Mirantis/cri-dockerd/releases/download/v0.3.26/cri-dockerd-0.3.26.amd64.tgz' }
+          - { id: '21-skopeo', url: 'https://github.com/lework/skopeo-binary/releases/download/v1.16.1/skopeo-linux-amd64' }
+          - { id: '22-gateway-api', url: 'https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.3/standard-install.yaml' }
+          - { id: '23-prometheus-crds', url: 'https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.94.1/stripped-down-crds.yaml' }
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Check free disk space
-        run: df -h .
-      - name: Download all files and create one ZIP
-        run: python3 scripts/download_and_pack.py
-      - name: Upload one ZIP as one Artifact
-        uses: actions/upload-artifact@v7
+      - name: Download file
+        shell: bash
+        env:
+          DOWNLOAD_URL: ${{ matrix.file.url }}
+        run: |
+          set -euo pipefail
+          mkdir -p download
+          filename="${DOWNLOAD_URL##*/}"
+          curl --fail --location --show-error --silent \
+            --retry 4 --retry-delay 3 --retry-all-errors \
+            --output "download/${filename}" "${DOWNLOAD_URL}"
+          test -s "download/${filename}"
+          ls -lh "download/${filename}"
+
+      - name: Upload individual artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: kubespray-offline-files-amd64
-          path: output/kubespray-offline-files-amd64.zip
-          archive: false
+          name: file-${{ matrix.file.id }}
+          path: download/*
           if-no-files-found: error
+          compression-level: 0
           retention-days: 30
