@@ -1,0 +1,37 @@
+
+name: Download Cilium Helm Chart
+
+on:
+  workflow_dispatch:
+
+jobs:
+  download:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Download Cilium Chart and Index
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p cilium-chart
+
+          curl -fL --retry 5 \
+            https://helm.cilium.io/index.yaml \
+            -o cilium-chart/index.yaml
+
+          curl -fL --retry 5 \
+            https://helm.cilium.io/cilium-1.20.4.tgz \
+            -o cilium-chart/cilium-1.20.4.tgz
+
+          test -s cilium-chart/index.yaml
+          test -s cilium-chart/cilium-1.20.4.tgz
+
+          tar -tzf cilium-chart/cilium-1.20.4.tgz > /dev/null
+
+      - name: Upload Chart Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cilium-helm-chart-1.20.4
+          path: cilium-chart/
+          retention-days: 30
+          if-no-files-found: error
