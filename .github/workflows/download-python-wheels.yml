@@ -1,0 +1,57 @@
+
+name: Kubespray Python wheels - offline
+
+on:
+  workflow_dispatch:
+
+jobs:
+  wheels:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download all wheels and dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m pip download \
+            --only-binary=:all: \
+            --dest wheelhouse \
+            -r requirements.txt
+
+          cp requirements.txt wheelhouse/requirements.txt
+
+          ls -lh wheelhouse/
+
+      - name: Test offline installation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m venv /tmp/kubespray-wheel-test
+
+          /tmp/kubespray-wheel-test/bin/python -m pip install \
+            --no-index \
+            --find-links="$GITHUB_WORKSPACE/wheelhouse" \
+            -r "$GITHUB_WORKSPACE/wheelhouse/requirements.txt"
+
+          /tmp/kubespray-wheel-test/bin/python -m pip check
+
+          /tmp/kubespray-wheel-test/bin/ansible --version
+
+      - name: Upload wheels artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kubespray-python-wheels-py312-linux-amd64
+          path: wheelhouse/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
